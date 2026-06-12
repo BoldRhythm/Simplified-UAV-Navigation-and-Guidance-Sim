@@ -72,63 +72,119 @@ def plotly3D_plot_test():
 
 
 class UAV:
-    def __init__(self, x, y, z, vx, vy, vz):
+    def __init__(self, x, y, z, vx, vy, vz, ax, ay, az):
         self.pos = np.array([x, y, z], dtype=float)
         self.vel = np.array([vx, vy, vz], dtype=float)
+        self.accel = np.array([ax, ay, az], dtype=float)
 
         self.history = [self.pos.copy()]
     
     def update(self, dt):
-        self.pos += self.vel * dt
+        self.pos += self.vel * dt + 0.5 * self.accel * dt**2
         self.history.append(self.pos.copy())
 
 
 
 def plotly_Interceptor_demo():
 
-    uav = UAV(0, 0, 1, 0, 0, 0)
+    uav1 = UAV(0, 0, 1, 
+               1, 0, 0, 
+               0, 0, 0)
+    uav_attack = UAV(0, 0, -5, 
+                     1, 0, 0, 
+                     0, 0, 0)
 
     dt = 1
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
 
-    ax.set_xlim(0, 50)
-    ax.set_ylim(-5, 5)
-    ax.set_zlim(-5, 5)
+    ax.set_xlim(0, 100)
+    ax.set_ylim(-10, 10)
+    ax.set_zlim(-10, 10)
 
-    point, = ax.plot([], [], [], 'ro', markersize=8)
-    trail, = ax.plot([], [], [], 'r-', linewidth=2)
+    point_target, = ax.plot([], [], [], 'ro', markersize=8)
+    trail_target, = ax.plot([], [], [], 'r-', linewidth=2)
 
+    point_attack, = ax.plot([], [], [], 'bo', markersize=8)
+    trail_attack, = ax.plot([], [], [], 'b-', linewidth=2)
+
+    info_text = ax.text2D(
+        -0.35,
+        0.75,
+        "",
+        transform=ax.transAxes,
+        bbox=dict(
+        boxstyle="round",
+        facecolor="white",
+        alpha=0.8
+        )
+    )
 
     def update(frame):
 
-        uav.vel = np.array([
+        uav1.vel = np.array([
             1,
             np.sin(frame),
             np.cos(frame)
         ])
 
-        uav.update(dt)
+        uav_attack.vel = np.array([
+            0,
+            0,
+            0
+        ])
 
-        point.set_data([uav.pos[0]], [uav.pos[1]])
-        point.set_3d_properties([uav.pos[2]])
+        uav1.update(dt)
+        uav_attack.update(dt)
 
-        history = np.array(uav.history)
+        #target UAV
+        point_target.set_data([uav1.pos[0]], [uav1.pos[1]])
+        point_target.set_3d_properties([uav1.pos[2]])
+        #one way attack
+        point_attack.set_data([uav_attack.pos[0]], [uav_attack.pos[1]])
+        point_attack.set_3d_properties([uav_attack.pos[2]])
 
-        trail.set_data(history[:, 0], history[:, 1])
-        trail.set_3d_properties(history[:, 2])
+        history_target = np.array(uav1.history)
+        history_attack = np.array(uav_attack.history)
 
-        return point, trail
+        #target trail
+        trail_target.set_data(history_target[:, 0], history_target[:, 1])
+        trail_target.set_3d_properties(history_target[:, 2])
+        #attack trail
+        trail_attack.set_data(history_attack[:, 0], history_attack[:, 1])
+        trail_attack.set_3d_properties(history_attack[:, 2])
+
+        info_text.set_text(
+            f"TARGET\n"
+            f"Pos: ({uav1.pos[0]:.2f}, {uav1.pos[1]:.2f}, {uav1.pos[2]:.2f})\n"
+            f"Vel: ({uav1.vel[0]:.2f}, {uav1.vel[1]:.2f}, {uav1.vel[2]:.2f})\n"
+            f"Accel: ({uav1.accel[0]:.2f}, {uav1.accel[1]:.2f}, {uav1.accel[2]:.2f})\n\n"
+            f"INTERCEPTOR\n"
+            f"Pos: ({uav_attack.pos[0]:.2f}, {uav_attack.pos[1]:.2f}, {uav_attack.pos[2]:.2f})\n"
+            f"Vel: ({uav_attack.vel[0]:.2f}, {uav_attack.vel[1]:.2f}, {uav_attack.vel[2]:.2f})\n"
+            f"Accel: ({uav_attack.accel[0]:.2f}, {uav_attack.accel[1]:.2f}, {uav_attack.accel[2]:.2f})"
+        )
+
+        return (point_target,
+                trail_target,
+                point_attack,
+                trail_attack,
+                info_text)
 
     ani = anim.FuncAnimation(
         fig,
         update,
-        frames=range(50),
+        frames=range(100),
         interval=50,
         blit=False,
         repeat=False
     )
+
+    # point_target, = ax.plot([], [], [], 'ro', label='Target')
+    # point_attack, = ax.plot([], [], [], 'bo', label='Interceptor')
+
+    # ax.legend()
 
     plt.show()
 
