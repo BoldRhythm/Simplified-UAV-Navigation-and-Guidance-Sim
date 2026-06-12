@@ -92,7 +92,7 @@ def relative_position(interceptor, target):
     return np.array(target.pos - interceptor.pos)
 
 def relative_velocity(interceptor, target):
-    return target.vel - interceptor.vel
+    return np.array(target.vel - interceptor.vel)
 
 def plotly_Interceptor_demo():
 
@@ -106,7 +106,7 @@ def plotly_Interceptor_demo():
 
     dt = 1
 
-    fig = plt.figure()
+    fig = plt.figure(figsize=(14,8))
     ax = fig.add_subplot(111, projection='3d')
 
     ax.set_xlim(0, 100)
@@ -120,7 +120,7 @@ def plotly_Interceptor_demo():
     trail_attack, = ax.plot([], [], [], 'b-', linewidth=2)
 
     info_text = ax.text2D(
-        -0.35,
+        -0.5,
         0.6,
         "",
         transform=ax.transAxes,
@@ -167,6 +167,7 @@ def plotly_Interceptor_demo():
         trail_attack.set_3d_properties(history_attack[:, 2])
 
         rel_pos = relative_position(uav_attack, uav_target)
+        rel_vel = relative_velocity(uav_attack, uav_target)
 
         info_text.set_text(
             f"TARGET\n"
@@ -177,7 +178,8 @@ def plotly_Interceptor_demo():
             f"Pos: ({uav_attack.pos[0]:.2f}, {uav_attack.pos[1]:.2f}, {uav_attack.pos[2]:.2f})\n"
             f"Vel: ({uav_attack.vel[0]:.2f}, {uav_attack.vel[1]:.2f}, {uav_attack.vel[2]:.2f})\n"
             f"Accel: ({uav_attack.accel[0]:.2f}, {uav_attack.accel[1]:.2f}, {uav_attack.accel[2]:.2f})\n\n"
-            f"Relative Position: ({rel_pos[0]:.2f}, {rel_pos[1]:.2f}, {rel_pos[2]:.2f})"
+            f"Relative Position: ({rel_pos[0]:.2f}, {rel_pos[1]:.2f}, {rel_pos[2]:.2f})\n"
+            f"Relative Velocity: ({rel_vel[0]:.2f}, {rel_vel[1]:.2f}, {rel_vel[2]:.2f})"
         )
 
         return (point_target,
