@@ -70,6 +70,11 @@ def plotly3D_plot_test():
     fig.show()
 
 
+class Sensor: #This class is for the cone of vision
+    def __init__(self, fov_angle, vis_range):
+        self.fov_angle = fov_angle
+        self.vis_range = vis_range
+
 
 class UAV:
     def __init__(self, x, y, z, vx, vy, vz, ax, ay, az):
@@ -83,16 +88,21 @@ class UAV:
         self.pos += self.vel * dt + 0.5 * self.accel * dt**2
         self.history.append(self.pos.copy())
 
+def relative_position(interceptor, target):
+    return np.array(target.pos - interceptor.pos)
 
+def relative_velocity(interceptor, target):
+    return target.vel - interceptor.vel
 
 def plotly_Interceptor_demo():
 
-    uav1 = UAV(0, 0, 1, 
+    uav_target = UAV(0, 0, 1, 
                1, 0, 0, 
                0, 0, 0)
     uav_attack = UAV(0, 0, -5, 
                      1, 0, 0, 
                      0, 0, 0)
+    uav_attack.Sensor = Sensor(np.radians(20), 20)
 
     dt = 1
 
@@ -111,19 +121,20 @@ def plotly_Interceptor_demo():
 
     info_text = ax.text2D(
         -0.35,
-        0.75,
+        0.6,
         "",
         transform=ax.transAxes,
         bbox=dict(
         boxstyle="round",
         facecolor="white",
-        alpha=0.8
+        alpha=0.6
         )
     )
 
+
     def update(frame):
 
-        uav1.vel = np.array([
+        uav_target.vel = np.array([
             1,
             np.sin(frame),
             np.cos(frame)
@@ -135,17 +146,17 @@ def plotly_Interceptor_demo():
             0
         ])
 
-        uav1.update(dt)
+        uav_target.update(dt)
         uav_attack.update(dt)
 
         #target UAV
-        point_target.set_data([uav1.pos[0]], [uav1.pos[1]])
-        point_target.set_3d_properties([uav1.pos[2]])
+        point_target.set_data([uav_target.pos[0]], [uav_target.pos[1]])
+        point_target.set_3d_properties([uav_target.pos[2]])
         #one way attack
         point_attack.set_data([uav_attack.pos[0]], [uav_attack.pos[1]])
         point_attack.set_3d_properties([uav_attack.pos[2]])
 
-        history_target = np.array(uav1.history)
+        history_target = np.array(uav_target.history)
         history_attack = np.array(uav_attack.history)
 
         #target trail
@@ -155,15 +166,18 @@ def plotly_Interceptor_demo():
         trail_attack.set_data(history_attack[:, 0], history_attack[:, 1])
         trail_attack.set_3d_properties(history_attack[:, 2])
 
+        rel_pos = relative_position(uav_attack, uav_target)
+
         info_text.set_text(
             f"TARGET\n"
-            f"Pos: ({uav1.pos[0]:.2f}, {uav1.pos[1]:.2f}, {uav1.pos[2]:.2f})\n"
-            f"Vel: ({uav1.vel[0]:.2f}, {uav1.vel[1]:.2f}, {uav1.vel[2]:.2f})\n"
-            f"Accel: ({uav1.accel[0]:.2f}, {uav1.accel[1]:.2f}, {uav1.accel[2]:.2f})\n\n"
+            f"Pos: ({uav_target.pos[0]:.2f}, {uav_target.pos[1]:.2f}, {uav_target.pos[2]:.2f})\n"
+            f"Vel: ({uav_target.vel[0]:.2f}, {uav_target.vel[1]:.2f}, {uav_target.vel[2]:.2f})\n"
+            f"Accel: ({uav_target.accel[0]:.2f}, {uav_target.accel[1]:.2f}, {uav_target.accel[2]:.2f})\n\n"
             f"INTERCEPTOR\n"
             f"Pos: ({uav_attack.pos[0]:.2f}, {uav_attack.pos[1]:.2f}, {uav_attack.pos[2]:.2f})\n"
             f"Vel: ({uav_attack.vel[0]:.2f}, {uav_attack.vel[1]:.2f}, {uav_attack.vel[2]:.2f})\n"
-            f"Accel: ({uav_attack.accel[0]:.2f}, {uav_attack.accel[1]:.2f}, {uav_attack.accel[2]:.2f})"
+            f"Accel: ({uav_attack.accel[0]:.2f}, {uav_attack.accel[1]:.2f}, {uav_attack.accel[2]:.2f})\n\n"
+            f"Relative Position: ({rel_pos[0]:.2f}, {rel_pos[1]:.2f}, {rel_pos[2]:.2f})"
         )
 
         return (point_target,
