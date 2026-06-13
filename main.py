@@ -131,11 +131,12 @@ def plotly_Interceptor_demo():
                      20, 0, 0, 
                      0, 0, 0)
     uav_attack = UAV(0, 0, 0, 
-                     40, 0, 0, 
+                     20, 0, 0, 
                      0, 0, 0)
     uav_attack.Sensor = Sensor(np.radians(20), 20)
 
-    PN = Guidance(2)
+    N_value = 1
+    PN = Guidance(N_value)
 
     total_time = 20 #simulated time total (how long the scenario lasts)
     dt = 0.05 #timestep, influences physics accuracy
@@ -171,6 +172,8 @@ def plotly_Interceptor_demo():
         alpha=0.6
         )
     )
+
+    los_line, = ax.plot([], [], [], 'g--', linewidth=1.5)
 
 
     def update(frame):
@@ -211,24 +214,36 @@ def plotly_Interceptor_demo():
         relPos = relative_position(uav_attack, uav_target) #These two lines are only for use in the display telemetry
         relVel = relative_velocity(uav_attack, uav_target)
 
+        los_line.set_data(
+            [uav_attack.pos[0], uav_target.pos[0]],
+            [uav_attack.pos[1], uav_target.pos[1]]
+        )
+
+        los_line.set_3d_properties(
+            [uav_attack.pos[2], uav_target.pos[2]]
+        )
+
         info_text.set_text(
             f"TARGET\n"
-            f"Pos: ({uav_target.pos[0]:.2f}, {uav_target.pos[1]:.2f}, {uav_target.pos[2]:.2f})\n"
-            f"Vel: ({uav_target.vel[0]:.2f}, {uav_target.vel[1]:.2f}, {uav_target.vel[2]:.2f})\n"
-            f"Accel: ({uav_target.accel[0]:.2f}, {uav_target.accel[1]:.2f}, {uav_target.accel[2]:.2f})\n\n"
+            f"Pos (m): ({uav_target.pos[0]:.2f}, {uav_target.pos[1]:.2f}, {uav_target.pos[2]:.2f})\n"
+            f"Vel (m/s): ({uav_target.vel[0]:.2f}, {uav_target.vel[1]:.2f}, {uav_target.vel[2]:.2f})\n"
+            f"Accel (m/s2): ({uav_target.accel[0]:.2f}, {uav_target.accel[1]:.2f}, {uav_target.accel[2]:.2f})\n\n"
             f"INTERCEPTOR\n"
-            f"Pos: ({uav_attack.pos[0]:.2f}, {uav_attack.pos[1]:.2f}, {uav_attack.pos[2]:.2f})\n"
-            f"Vel: ({uav_attack.vel[0]:.2f}, {uav_attack.vel[1]:.2f}, {uav_attack.vel[2]:.2f})\n"
-            f"Accel: ({uav_attack.accel[0]:.2f}, {uav_attack.accel[1]:.2f}, {uav_attack.accel[2]:.2f})\n\n"
-            f"Relative Position: ({relPos[0]:.2f}, {relPos[1]:.2f}, {relPos[2]:.2f})\n"
-            f"Relative Velocity: ({relVel[0]:.2f}, {relVel[1]:.2f}, {relVel[2]:.2f})"
+            f"Pos (m): ({uav_attack.pos[0]:.2f}, {uav_attack.pos[1]:.2f}, {uav_attack.pos[2]:.2f})\n"
+            f"Vel (m/s): ({uav_attack.vel[0]:.2f}, {uav_attack.vel[1]:.2f}, {uav_attack.vel[2]:.2f})\n"
+            f"Accel (m/s2): ({uav_attack.accel[0]:.2f}, {uav_attack.accel[1]:.2f}, {uav_attack.accel[2]:.2f})\n\n"
+            f"Relative Position (m): ({relPos[0]:.2f}, {relPos[1]:.2f}, {relPos[2]:.2f})\n"
+            f"Relative Velocity (m/s): ({relVel[0]:.2f}, {relVel[1]:.2f}, {relVel[2]:.2f})\n"
+            f"Distance b/w Target and Interceptor (m) : {np.linalg.norm(relPos):.2f}\n"
+            f"N value for accel_cmd in PN : {N_value}"
         )
 
         return (point_target,
                 trail_target,
                 point_attack,
                 trail_attack,
-                info_text)
+                info_text,
+                los_line)
 
     ani = anim.FuncAnimation(
         fig,
