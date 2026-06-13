@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as anim
 import plotly.graph_objects as go
 import numpy as np
+import math
 
 def main():
     print("Hello from interceptor-study!")
@@ -86,7 +87,27 @@ class UAV:
     
     def update(self, dt):
         self.pos += self.vel * dt + 0.5 * self.accel * dt**2
+        self.vel += self.accel * dt
         self.history.append(self.pos.copy())
+
+class Guidance:
+    def __init__(self, N):
+        self.N = N
+
+    def get_acceleration(self, interceptor, target):
+        relPos = relative_position(interceptor, target)
+        relVel = relative_velocity(interceptor, target)
+
+        R = np.linalg.norm(relPos)
+
+        Vc = np.dot(relPos, relVel) / R #closing velocity
+        omega = np.cross(relPos, relVel) / R**2 #rotation vector of the line of sight
+        v_hat = interceptor.vel / np.linalg.norm(interceptor.vel) #interceptor velcocity unit vector (direction of its velocity)
+
+        accel_cmd = self.N * Vc * np.cross(omega, v_hat)
+
+        return accel_cmd
+        
 
 def relative_position(interceptor, target):
     return np.array(target.pos - interceptor.pos)
@@ -94,24 +115,43 @@ def relative_position(interceptor, target):
 def relative_velocity(interceptor, target):
     return np.array(target.vel - interceptor.vel)
 
+def safe_sqrt(val):
+    if val < 0:
+        raise ValueError("Cannot compute sqrt of a negative number.")
+    return math.sqrt(val)
+
 def plotly_Interceptor_demo():
 
-    uav_target = UAV(0, 0, 1, 
-               1, 0, 0, 
-               0, 0, 0)
-    uav_attack = UAV(0, 0, -5, 
-                     1, 0, 0, 
+    #Position : m (ie all assigned position numbers are in m)
+    #Velocity : m/s (ie relVel, object.vel etc are in m/s)
+    #Time : s (ie dt, total_time, etc are in s)
+
+    uav_target = UAV(0, 0, 100, 
+                     20, 0, 0, 
+                     0, 0, 0)
+    uav_attack = UAV(0, 0, 0, 
+                     40, 0, 0, 
                      0, 0, 0)
     uav_attack.Sensor = Sensor(np.radians(20), 20)
 
-    dt = 1
+    PN = Guidance(2)
+
+    total_time = 20 #simulated time total (how long the scenario lasts)
+    dt = 0.05 #timestep, influences physics accuracy
 
     fig = plt.figure(figsize=(14,8))
     ax = fig.add_subplot(111, projection='3d')
 
-    ax.set_xlim(0, 100)
-    ax.set_ylim(-10, 10)
-    ax.set_zlim(-10, 10)
+    ax.set_xlim(0, 500)
+    ax.set_ylim(-200, 200)
+    ax.set_zlim(-50, 200)
+
+    ax.set_box_aspect([500, 400, 250]) #When I run the code, this defines how the "zoom" is by default
+
+    ax.view_init(
+        elev=20,   # vertical angle
+        azim=-60   # horizontal angle
+    )
 
     point_target, = ax.plot([], [], [], 'ro', markersize=8)
     trail_target, = ax.plot([], [], [], 'r-', linewidth=2)
@@ -134,19 +174,20 @@ def plotly_Interceptor_demo():
 
     def update(frame):
 
-        uav_target.vel = np.array([
-            1,
-            np.sin(frame),
-            np.cos(frame)
-        ])
+        # uav_target.vel = np.array([
+        #     1.0,
+        #     np.sin(frame),
+        #     np.cos(frame)
+        # ])
 
-        uav_attack.vel = np.array([
-            0,
-            0,
-            0
-        ])
+        # uav_attack.vel = np.array([
+        #     1,
+        #     0,
+        #     0
+        # ])
 
         uav_target.update(dt)
+        uav_attack.accel = PN.get_acceleration(uav_attack, uav_target)
         uav_attack.update(dt)
 
         #target UAV
@@ -166,8 +207,8 @@ def plotly_Interceptor_demo():
         trail_attack.set_data(history_attack[:, 0], history_attack[:, 1])
         trail_attack.set_3d_properties(history_attack[:, 2])
 
-        rel_pos = relative_position(uav_attack, uav_target)
-        rel_vel = relative_velocity(uav_attack, uav_target)
+        relPos = relative_position(uav_attack, uav_target) #These two lines are only for use in the display telemetry
+        relVel = relative_velocity(uav_attack, uav_target)
 
         info_text.set_text(
             f"TARGET\n"
@@ -178,8 +219,8 @@ def plotly_Interceptor_demo():
             f"Pos: ({uav_attack.pos[0]:.2f}, {uav_attack.pos[1]:.2f}, {uav_attack.pos[2]:.2f})\n"
             f"Vel: ({uav_attack.vel[0]:.2f}, {uav_attack.vel[1]:.2f}, {uav_attack.vel[2]:.2f})\n"
             f"Accel: ({uav_attack.accel[0]:.2f}, {uav_attack.accel[1]:.2f}, {uav_attack.accel[2]:.2f})\n\n"
-            f"Relative Position: ({rel_pos[0]:.2f}, {rel_pos[1]:.2f}, {rel_pos[2]:.2f})\n"
-            f"Relative Velocity: ({rel_vel[0]:.2f}, {rel_vel[1]:.2f}, {rel_vel[2]:.2f})"
+            f"Relative Position: ({relPos[0]:.2f}, {relPos[1]:.2f}, {relPos[2]:.2f})\n"
+            f"Relative Velocity: ({relVel[0]:.2f}, {relVel[1]:.2f}, {relVel[2]:.2f})"
         )
 
         return (point_target,
@@ -191,8 +232,8 @@ def plotly_Interceptor_demo():
     ani = anim.FuncAnimation(
         fig,
         update,
-        frames=range(100),
-        interval=50,
+        frames=int(total_time / dt),
+        interval=20,
         blit=False,
         repeat=False
     )
