@@ -70,6 +70,7 @@ def plotly3D_plot_test():
 
     fig.show()
 
+#From here on, the actual code begins. The previous stuff was just test code.
 
 class Sensor: #This class is for the cone of vision
     def __init__(self, fov_angle, vis_range):
