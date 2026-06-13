@@ -101,13 +101,17 @@ class Guidance:
 
         R = np.linalg.norm(relPos)
 
-        Vc = np.dot(relPos, relVel) / R #closing velocity
+        Vc = -np.dot(relPos, relVel) / R #closing velocity
         omega = np.cross(relPos, relVel) / R**2 #rotation vector of the line of sight
-        v_hat = interceptor.vel / np.linalg.norm(interceptor.vel) #interceptor velcocity unit vector (direction of its velocity)
 
-        accel_cmd = self.N * Vc * np.cross(omega, v_hat)
+        speed = np.linalg.norm(interceptor.vel)
+        if speed < 1e-6:
+            return np.zeros(3), R, Vc, omega, relPos, relVel
+        v_hat = interceptor.vel / speed #interceptor velcocity unit vector (direction of its velocity)
 
-        return accel_cmd
+        accel_cmd = self.N * Vc * np.cross(v_hat, omega) #currently have switched from (omega, v_hat) to (v_hat, omega) UPDATE: THE LATTER FIXED IT
+
+        return accel_cmd, R, Vc, omega, relPos, relVel
         
 
 def relative_position(interceptor, target):
@@ -126,46 +130,88 @@ def plotly_Interceptor_demo():
     #Position : m (ie all assigned position numbers are in m)
     #Velocity : m/s (ie relVel, object.vel etc are in m/s)
     #Time : s (ie dt, total_time, etc are in s)
+    #omega : rad/s
 
-    uav_target = UAV(0, 0, 100, 
-                     20, 0, 0, 
+    uav_target = UAV(200, 100, 0, 
+                     0, 0, 0, 
                      0, 0, 0)
     uav_attack = UAV(0, 0, 0, 
-                     20, 0, 0, 
+                     40, 0, 0, 
                      0, 0, 0)
     uav_attack.Sensor = Sensor(np.radians(20), 20)
 
-    N_value = 1
+    N_value = 3
     PN = Guidance(N_value)
 
     total_time = 20 #simulated time total (how long the scenario lasts)
     dt = 0.05 #timestep, influences physics accuracy
 
-    fig = plt.figure(figsize=(14,8))
-    ax = fig.add_subplot(111, projection='3d')
+    #MAIN INTERCEPTOR-TARGET ANIM PLOT
+    fig_sim = plt.figure(figsize=(14,8))
+    ax_sim = fig_sim.add_subplot(111, projection='3d')
 
-    ax.set_xlim(0, 500)
-    ax.set_ylim(-200, 200)
-    ax.set_zlim(-50, 200)
+    ax_sim.set_xlim(0, 500)
+    ax_sim.set_ylim(-200, 200)
+    ax_sim.set_zlim(-50, 200)
 
-    ax.set_box_aspect([500, 400, 250]) #When I run the code, this defines how the "zoom" is by default
+    ax_sim.set_box_aspect([500, 400, 250]) #When I run the code, this defines how the "zoom" is by default
 
-    ax.view_init(
+    ax_sim.view_init(
         elev=20,   # vertical angle
         azim=-60   # horizontal angle
     )
+    ###
 
-    point_target, = ax.plot([], [], [], 'ro', markersize=8)
-    trail_target, = ax.plot([], [], [], 'r-', linewidth=2)
+    #TELEMETRY PLOT WINDOW
+    fig_tel = plt.figure(figsize=(12, 8))
+    fig_tel.tight_layout()
 
-    point_attack, = ax.plot([], [], [], 'bo', markersize=8)
-    trail_attack, = ax.plot([], [], [], 'b-', linewidth=2)
+    ax_range = fig_tel.add_subplot(221)
+    ax_vc    = fig_tel.add_subplot(222)
+    ax_accel = fig_tel.add_subplot(223)
+    ax_omega = fig_tel.add_subplot(224)
 
-    info_text = ax.text2D(
+    range_history = []
+    Vc_history = []
+    time_history = []
+    accel_history = []
+    omega_history = []
+
+    range_line, = ax_range.plot([], [])
+    Vc_line,    = ax_vc.plot([], [])
+    accel_line, = ax_accel.plot([], [])
+    omega_line, = ax_omega.plot([], [])
+
+    ax_range.set_title("Range")
+    ax_range.set_ylabel("m")
+    ax_range.grid(True)
+
+    ax_vc.set_title("Closing Velocity")
+    ax_vc.set_ylabel("m/s")
+    ax_vc.grid(True)
+
+    ax_accel.set_title("Acceleration Command")
+    ax_accel.set_ylabel("m/s2")
+    ax_accel.set_xlabel("Time (s)")
+    ax_accel.grid(True)
+
+    ax_omega.set_title("Rate of LOS rotation")
+    ax_omega.set_ylabel("rad/s")
+    ax_omega.set_xlabel("Time (s)")
+    ax_omega.grid(True)
+    ###
+
+    point_target, = ax_sim.plot([], [], [], 'ro', markersize=8)
+    trail_target, = ax_sim.plot([], [], [], 'r-', linewidth=2)
+
+    point_attack, = ax_sim.plot([], [], [], 'bo', markersize=8)
+    trail_attack, = ax_sim.plot([], [], [], 'b-', linewidth=2)
+
+    info_text = ax_sim.text2D(
         -0.5,
         0.6,
         "",
-        transform=ax.transAxes,
+        transform=ax_sim.transAxes,
         bbox=dict(
         boxstyle="round",
         facecolor="white",
@@ -173,8 +219,7 @@ def plotly_Interceptor_demo():
         )
     )
 
-    los_line, = ax.plot([], [], [], 'g--', linewidth=1.5)
-
+    los_line, = ax_sim.plot([], [], [], 'g--', linewidth=1.5)
 
     def update(frame):
 
@@ -191,8 +236,14 @@ def plotly_Interceptor_demo():
         # ])
 
         uav_target.update(dt)
-        uav_attack.accel = PN.get_acceleration(uav_attack, uav_target)
+        uav_attack.accel, R, Vc, omega, relPos, relVel = PN.get_acceleration(uav_attack, uav_target) 
         uav_attack.update(dt)
+
+        time_history.append(frame * dt)
+        range_history.append(R)
+        Vc_history.append(Vc)
+        accel_history.append(np.linalg.norm(uav_attack.accel))
+        omega_history.append(np.linalg.norm(omega))
 
         #target UAV
         point_target.set_data([uav_target.pos[0]], [uav_target.pos[1]])
@@ -210,9 +261,6 @@ def plotly_Interceptor_demo():
         #attack trail
         trail_attack.set_data(history_attack[:, 0], history_attack[:, 1])
         trail_attack.set_3d_properties(history_attack[:, 2])
-
-        relPos = relative_position(uav_attack, uav_target) #These two lines are only for use in the display telemetry
-        relVel = relative_velocity(uav_attack, uav_target)
 
         los_line.set_data(
             [uav_attack.pos[0], uav_target.pos[0]],
@@ -234,19 +282,36 @@ def plotly_Interceptor_demo():
             f"Accel (m/s2): ({uav_attack.accel[0]:.2f}, {uav_attack.accel[1]:.2f}, {uav_attack.accel[2]:.2f})\n\n"
             f"Relative Position (m): ({relPos[0]:.2f}, {relPos[1]:.2f}, {relPos[2]:.2f})\n"
             f"Relative Velocity (m/s): ({relVel[0]:.2f}, {relVel[1]:.2f}, {relVel[2]:.2f})\n"
-            f"Distance b/w Target and Interceptor (m) : {np.linalg.norm(relPos):.2f}\n"
+            f"Distance b/w Target and Interceptor (m) : {R:.2f}\n"
             f"N value for accel_cmd in PN : {N_value}"
         )
+
+        #TELEMETRY PLOT UPDATES
+        range_line.set_data(time_history, range_history)
+        Vc_line.set_data(time_history, Vc_history)
+        accel_line.set_data(time_history, accel_history)
+        omega_line.set_data(time_history, omega_history)
+
+        for ax in [ax_range, ax_vc, ax_accel, ax_omega]:
+            ax.relim()
+            ax.autoscale_view()
+
+        fig_tel.canvas.draw_idle()
+        ###
 
         return (point_target,
                 trail_target,
                 point_attack,
                 trail_attack,
                 info_text,
-                los_line)
+                los_line,
+                range_line,
+                Vc_line,
+                accel_line,
+                omega_line)
 
     ani = anim.FuncAnimation(
-        fig,
+        fig_sim,
         update,
         frames=int(total_time / dt),
         interval=20,
@@ -254,10 +319,10 @@ def plotly_Interceptor_demo():
         repeat=False
     )
 
-    # point_target, = ax.plot([], [], [], 'ro', label='Target')
-    # point_attack, = ax.plot([], [], [], 'bo', label='Interceptor')
+    # point_target, = ax_sim.plot([], [], [], 'ro', label='Target')
+    # point_attack, = ax_sim.plot([], [], [], 'bo', label='Interceptor')
 
-    # ax.legend()
+    # ax_sim.legend()
 
     plt.show()
 
