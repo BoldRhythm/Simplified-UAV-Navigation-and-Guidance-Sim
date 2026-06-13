@@ -145,6 +145,7 @@ def plotly_Interceptor_demo():
 
     total_time = 20 #simulated time total (how long the scenario lasts)
     dt = 0.05 #timestep, influences physics accuracy
+    hit_radius = 5.0 #in meters, obv
 
     #MAIN INTERCEPTOR-TARGET ANIM PLOT
     fig_sim = plt.figure(figsize=(14,8))
@@ -209,6 +210,11 @@ def plotly_Interceptor_demo():
     ax_int_speed.grid(True)
     ###
 
+    #POSITION AND SIZE OF BOTH PLOTS ON THE SCREEN
+    fig_sim.canvas.manager.window.wm_geometry("800x900+0+0")
+    fig_tel.canvas.manager.window.wm_geometry("1100x900+785+0")
+    ###
+
     point_target, = ax_sim.plot([], [], [], 'ro', markersize=8)
     trail_target, = ax_sim.plot([], [], [], 'r-', linewidth=2)
 
@@ -216,8 +222,8 @@ def plotly_Interceptor_demo():
     trail_attack, = ax_sim.plot([], [], [], 'b-', linewidth=2)
 
     info_text = ax_sim.text2D(
-        -0.5,
-        0.6,
+        -0.1,
+        0.8,
         "",
         transform=ax_sim.transAxes,
         bbox=dict(
@@ -308,6 +314,14 @@ def plotly_Interceptor_demo():
 
         fig_tel.canvas.draw_idle()
         ###
+
+        if R <= hit_radius:
+            info_text.set_text(
+                f"Intercept ACHIEVED!\n"
+                f"Time : {frame * dt :.2f} s\n"
+                f"Range : {R :.2f} m"
+            )
+            ani.event_source.stop()
 
         return (point_target,
                 trail_target,
