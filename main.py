@@ -132,11 +132,15 @@ def plotly_Interceptor_demo():
     #Time : s (ie dt, total_time, etc are in s)
     #omega : rad/s
 
-    uav_target = UAV(200, 100, 0, 
-                     0, 0, 0, 
+    # uav_target = UAV(200, 470, 50, 
+    #                  0, 0, 0, 
+    #                  0, 0, 0)
+
+    uav_target = UAV(0, 0, 50, 
+                     51.389, 0, 0, 
                      0, 0, 0)
     uav_attack = UAV(0, 0, 0, 
-                     40, 0, 0, 
+                     60, 0, 0, 
                      0, 0, 0)
     uav_attack.Sensor = Sensor(np.radians(20), 20)
 
