@@ -109,7 +109,7 @@ class Guidance:
             return np.zeros(3), R, Vc, omega, relPos, relVel
         v_hat = interceptor.vel / speed #interceptor velcocity unit vector (direction of its velocity)
 
-        accel_cmd = self.N * Vc * np.cross(v_hat, omega) #currently have switched from (omega, v_hat) to (v_hat, omega) UPDATE: THE LATTER FIXED IT
+        accel_cmd = self.N * Vc * np.cross(omega, v_hat)
 
         return accel_cmd, R, Vc, omega, relPos, relVel
         
@@ -166,21 +166,24 @@ def plotly_Interceptor_demo():
     fig_tel = plt.figure(figsize=(12, 8))
     fig_tel.tight_layout()
 
-    ax_range = fig_tel.add_subplot(221)
-    ax_vc    = fig_tel.add_subplot(222)
-    ax_accel = fig_tel.add_subplot(223)
-    ax_omega = fig_tel.add_subplot(224)
+    ax_range = fig_tel.add_subplot(231)
+    ax_vc    = fig_tel.add_subplot(232)
+    ax_accel = fig_tel.add_subplot(233)
+    ax_omega = fig_tel.add_subplot(234)
+    ax_int_speed = fig_tel.add_subplot(235)
 
     range_history = []
     Vc_history = []
     time_history = []
     accel_history = []
     omega_history = []
+    int_speed_history = []
 
     range_line, = ax_range.plot([], [])
     Vc_line,    = ax_vc.plot([], [])
     accel_line, = ax_accel.plot([], [])
     omega_line, = ax_omega.plot([], [])
+    int_speed_line, = ax_int_speed.plot([], [])
 
     ax_range.set_title("Range")
     ax_range.set_ylabel("m")
@@ -199,6 +202,11 @@ def plotly_Interceptor_demo():
     ax_omega.set_ylabel("rad/s")
     ax_omega.set_xlabel("Time (s)")
     ax_omega.grid(True)
+
+    ax_int_speed.set_title("Interceptor Speed")
+    ax_int_speed.set_ylabel("m/s")
+    ax_int_speed.set_xlabel("Time (s)")
+    ax_int_speed.grid(True)
     ###
 
     point_target, = ax_sim.plot([], [], [], 'ro', markersize=8)
@@ -244,6 +252,7 @@ def plotly_Interceptor_demo():
         Vc_history.append(Vc)
         accel_history.append(np.linalg.norm(uav_attack.accel))
         omega_history.append(np.linalg.norm(omega))
+        int_speed_history.append(np.linalg.norm(uav_attack.vel))
 
         #target UAV
         point_target.set_data([uav_target.pos[0]], [uav_target.pos[1]])
@@ -291,8 +300,9 @@ def plotly_Interceptor_demo():
         Vc_line.set_data(time_history, Vc_history)
         accel_line.set_data(time_history, accel_history)
         omega_line.set_data(time_history, omega_history)
+        int_speed_line.set_data(time_history, int_speed_history)
 
-        for ax in [ax_range, ax_vc, ax_accel, ax_omega]:
+        for ax in [ax_range, ax_vc, ax_accel, ax_omega, ax_int_speed]:
             ax.relim()
             ax.autoscale_view()
 
@@ -308,7 +318,8 @@ def plotly_Interceptor_demo():
                 range_line,
                 Vc_line,
                 accel_line,
-                omega_line)
+                omega_line,
+                int_speed_line)
 
     ani = anim.FuncAnimation(
         fig_sim,
