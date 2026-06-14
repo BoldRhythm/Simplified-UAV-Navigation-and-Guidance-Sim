@@ -357,4 +357,7 @@ def plotly_Interceptor_demo():
 
 
 if __name__ == "__main__":
-    plotly_Interceptor_demo()
+    try:
+        plotly_Interceptor_demo()
+    except Exception as e:
+        print(e)
