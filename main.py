@@ -1,9 +1,10 @@
 import matplotlib.pyplot as plt
 import matplotlib.animation as anim
-import plotly.graph_objects as go
+# import plotly.graph_objects as go
 import numpy as np
 import math
 
+"""
 def main():
     print("Hello from interceptor-study!")
 
@@ -69,6 +70,7 @@ def plotly3D_plot_test():
     )
 
     fig.show()
+"""
 
 ### From here on, the actual code begins. The previous stuff was just test code. ###
 
