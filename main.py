@@ -111,9 +111,19 @@ class Guidance:
             return np.zeros(3), R, Vc, omega, relPos, relVel
         v_hat = interceptor.vel / speed #interceptor velcocity unit vector (direction of its velocity)
 
+        t_go = R / max(Vc, 0.1)
+        self.N = 2 + 20/(t_go + 2) #time-to-go adaptivity for N
+
         accel_cmd = self.N * Vc * np.cross(omega, v_hat)
 
-        return accel_cmd, R, Vc, omega, relPos, relVel
+        a_max = 30.0 #max possible acceleration of interceptor
+
+        a_mag = np.linalg.norm(accel_cmd)
+
+        if a_mag > a_max:
+            accel_cmd *= a_max / a_mag
+
+        return accel_cmd, R, Vc, omega, relPos, relVel, self.N, t_go
         
 
 def relative_position(interceptor, target):
@@ -138,7 +148,7 @@ def plotly_Interceptor_demo():
     #                  0, 0, 0, 
     #                  0, 0, 0)
 
-    uav_target = UAV(0, 0, 50, 
+    uav_target = UAV(20, 0, 50, 
                      51.389, 0, 0, 
                      0, 0, 0)
     uav_attack = UAV(0, 0, 0, 
@@ -146,7 +156,7 @@ def plotly_Interceptor_demo():
                      0, 0, 0)
     uav_attack.Sensor = Sensor(np.radians(20), 20)
 
-    N_value = 3
+    N_value = 2.7
     PN = Guidance(N_value)
 
     total_time = 20 #simulated time total (how long the scenario lasts)
@@ -178,6 +188,7 @@ def plotly_Interceptor_demo():
     ax_accel = fig_tel.add_subplot(233)
     ax_omega = fig_tel.add_subplot(234)
     ax_int_speed = fig_tel.add_subplot(235)
+    ax_t_go = fig_tel.add_subplot(236)
 
     range_history = []
     Vc_history = []
@@ -185,12 +196,14 @@ def plotly_Interceptor_demo():
     accel_history = []
     omega_history = []
     int_speed_history = []
+    t_go_history =[]
 
     range_line, = ax_range.plot([], [])
     Vc_line,    = ax_vc.plot([], [])
     accel_line, = ax_accel.plot([], [])
     omega_line, = ax_omega.plot([], [])
     int_speed_line, = ax_int_speed.plot([], [])
+    t_go_line, = ax_t_go.plot([], [])
 
     ax_range.set_title("Range")
     ax_range.set_ylabel("m")
@@ -214,6 +227,11 @@ def plotly_Interceptor_demo():
     ax_int_speed.set_ylabel("m/s")
     ax_int_speed.set_xlabel("Time (s)")
     ax_int_speed.grid(True)
+
+    ax_t_go.set_title("Time to go to intercept")
+    ax_t_go.set_ylabel("s")
+    ax_t_go.set_xlabel("s")
+    ax_t_go.grid(True)
     ###
 
     #POSITION AND SIZE OF BOTH PLOTS ON THE SCREEN
@@ -256,7 +274,7 @@ def plotly_Interceptor_demo():
         # ])
 
         uav_target.update(dt)
-        uav_attack.accel, R, Vc, omega, relPos, relVel = PN.get_acceleration(uav_attack, uav_target) 
+        uav_attack.accel, R, Vc, omega, relPos, relVel, N_value, t_go = PN.get_acceleration(uav_attack, uav_target) 
         uav_attack.update(dt)
 
         time_history.append(frame * dt)
@@ -265,6 +283,7 @@ def plotly_Interceptor_demo():
         accel_history.append(np.linalg.norm(uav_attack.accel))
         omega_history.append(np.linalg.norm(omega))
         int_speed_history.append(np.linalg.norm(uav_attack.vel))
+        t_go_history.append(t_go)
 
         #target UAV
         point_target.set_data([uav_target.pos[0]], [uav_target.pos[1]])
@@ -304,7 +323,9 @@ def plotly_Interceptor_demo():
             f"Relative Position (m): ({relPos[0]:.2f}, {relPos[1]:.2f}, {relPos[2]:.2f})\n"
             f"Relative Velocity (m/s): ({relVel[0]:.2f}, {relVel[1]:.2f}, {relVel[2]:.2f})\n"
             f"Distance b/w Target and Interceptor (m) : {R:.2f}\n"
-            f"N value for accel_cmd in PN : {N_value}"
+            f"Time to go (s) : {t_go:.2f}"
+            f"Distance of closest approach (m) : {min(range_history):.2f}\n"
+            f"N value for accel_cmd in PN : {N_value:.2f}"
         )
 
         #TELEMETRY PLOT UPDATES
@@ -313,8 +334,9 @@ def plotly_Interceptor_demo():
         accel_line.set_data(time_history, accel_history)
         omega_line.set_data(time_history, omega_history)
         int_speed_line.set_data(time_history, int_speed_history)
+        t_go_line.set_data(time_history, t_go_history)
 
-        for ax in [ax_range, ax_vc, ax_accel, ax_omega, ax_int_speed]:
+        for ax in [ax_range, ax_vc, ax_accel, ax_omega, ax_int_speed, ax_t_go]:
             ax.relim()
             ax.autoscale_view()
 
